@@ -16,6 +16,7 @@ from codex_memory.codex_data import (
     summarize_outcome_text,
 )
 from codex_memory.indexer import (
+    default_db_path,
     open_db,
     recent_threads,
     render_context,
@@ -29,6 +30,7 @@ from codex_memory.autostart import autostart_status, install_autostart, launchd_
 from codex_memory.hook_sink import emit_hook_payload
 from codex_memory.hook_watch import HookWatchState, run_watch_iteration, watch_hooks
 from codex_memory.hook_runtime import run_hook_event
+from codex_memory.embedding_provider import resolve_embedding_settings
 from codex_memory.vectorizer import encode_vector, text_to_vector
 
 
@@ -431,6 +433,48 @@ class MemoryQualityTests(unittest.TestCase):
 
             self.assertEqual(exit_code, 0)
             self.assertIsNone(install_mock.call_args.kwargs["db_path"])
+
+    def test_cli_autostart_install_without_cwd_uses_all_projects_scope(self):
+        with mock.patch("codex_memory.cli.install_autostart") as install_mock:
+            install_mock.return_value = {
+                "label": "test",
+                "cwd": None,
+                "plist_path": "/tmp/test.plist",
+                "emit_dir": "/tmp/runtime",
+                "installed": True,
+                "loaded": False,
+            }
+
+            exit_code = main(["autostart", "install"])
+
+            self.assertEqual(exit_code, 0)
+            self.assertIsNone(install_mock.call_args.kwargs["cwd"])
+
+    def test_default_db_path_uses_global_codex_memory_dir(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            codex_home = os.path.join(temp_dir, ".codex")
+            env = dict(os.environ)
+            env.pop("CODEX_MEMORY_DB", None)
+
+            with mock.patch.dict(os.environ, env, clear=True):
+                self.assertEqual(
+                    default_db_path(codex_home),
+                    os.path.join(codex_home, "memory", "codex-memory.sqlite"),
+                )
+
+    def test_resolve_embedding_settings_uses_global_fastembed_cache_dir(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            codex_home = os.path.join(temp_dir, ".codex")
+            env = dict(os.environ)
+            env.pop("CODEX_MEMORY_FASTEMBED_CACHE_DIR", None)
+
+            with mock.patch.dict(os.environ, env, clear=True):
+                settings = resolve_embedding_settings(codex_home=codex_home)
+
+            self.assertEqual(
+                settings.local_cache_dir,
+                os.path.join(codex_home, "memory", "fastembed-cache"),
+            )
 
     def test_sync_latest_threads_only_indexes_changed_threads(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -892,6 +936,26 @@ class MemoryQualityTests(unittest.TestCase):
             self.assertTrue(payload["installed"])
             self.assertEqual(payload["label"], label)
             self.assertEqual(payload["plist_path"], plist_path)
+
+    def test_autostart_install_without_cwd_writes_global_plist(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = "/Users/alex/Desktop/dev/codex-memory"
+            emit_dir = os.path.join(temp_dir, "runtime")
+
+            payload = install_autostart(
+                cwd=None,
+                repo_root=repo_root,
+                emit_dir=emit_dir,
+                launch_agents_dir=temp_dir,
+                load=False,
+                bootstrap_runtime=False,
+            )
+
+            self.assertIsNone(payload["cwd"])
+            self.assertEqual(payload["label"], "com.openai.codex-memory.watch.global")
+            with open(payload["plist_path"], "r", encoding="utf-8") as handle:
+                plist_text = handle.read()
+            self.assertNotIn("--cwd", plist_text)
 
     def test_staged_autostart_bundle_runs_with_system_python(self):
         with tempfile.TemporaryDirectory() as temp_dir:

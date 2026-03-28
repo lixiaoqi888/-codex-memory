@@ -65,8 +65,8 @@ def default_db_path(codex_home=None):
     override = os.environ.get("CODEX_MEMORY_DB")
     if override:
         return os.path.expanduser(override)
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(project_root, ".data", "codex-memory.sqlite")
+    codex_home = default_codex_home(codex_home)
+    return os.path.join(codex_home, "memory", "codex-memory.sqlite")
 
 
 def open_db(db_path):

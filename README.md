@@ -2,8 +2,8 @@
 
 `codex-memory` is a local memory sidecar for Codex Desktop. It indexes Codex
 thread metadata from `~/.codex/state_*.sqlite` and session transcripts from
-`~/.codex/sessions/**/*.jsonl`, then stores a hybrid recall index in the local
-project data directory at `.data/codex-memory.sqlite` by default.
+`~/.codex/sessions/**/*.jsonl`, then stores a hybrid recall index in the global
+Codex memory directory at `~/.codex/memory/codex-memory.sqlite` by default.
 
 Chinese documentation: [README.zh-CN.md](./README.zh-CN.md)
 
@@ -16,8 +16,8 @@ It is designed to be:
 
 - local-first: all indexed data stays on disk
 - hybrid: SQLite metadata + FTS5 + OpenAI-compatible embeddings + local Qdrant
+- shared-by-default: one global memory DB across projects under `~/.codex/memory`
 - project-aware: filter results by `cwd`
-- sandbox-friendly: default writes stay inside this workspace
 - lifecycle-aware: extract task/result/decision/observation style memory, not just raw chat
 
 ## Attribution
@@ -86,6 +86,14 @@ sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
 This gives you real local embeddings plus local Qdrant without depending on
 your API proxy.
 
+Default storage paths:
+
+```bash
+~/.codex/memory/codex-memory.sqlite
+~/.codex/memory/qdrant
+~/.codex/memory/fastembed-cache
+```
+
 If you explicitly want to use an OpenAI-compatible `/embeddings` endpoint
 instead, `codex-memory` can read:
 
@@ -141,7 +149,9 @@ Run from this project root:
 ./codex-memory hook PostToolUse --cwd /Users/alex/Desktop/dev
 ./codex-memory hook SessionEnd --cwd /Users/alex/Desktop/dev
 ./codex-memory watch --cwd /Users/alex/Desktop/dev --max-loops 1
+./codex-memory watch --max-loops 1
 ./codex-memory autostart status --cwd /Users/alex/Desktop/dev
+./codex-memory autostart status
 ```
 
 `sync` incrementally ingests only the most recent changed threads, which makes
@@ -178,9 +188,12 @@ threads and new rollout events:
 ./codex-memory watch --cwd /Users/alex/Desktop/dev
 ./codex-memory watch --cwd /Users/alex/Desktop/dev --poll-interval 1.0
 ./codex-memory watch --cwd /Users/alex/Desktop/dev --max-loops 1
+./codex-memory watch --max-loops 1
 ./codex-memory watch --cwd /Users/alex/Desktop/dev --emit-dir /tmp/codex-memory-runtime
 ./codex-memory watch --cwd /Users/alex/Desktop/dev --emit-session-end-on-exit
 ```
+
+If you omit `--cwd`, `watch` listens across all projects.
 
 It emits:
 
@@ -205,6 +218,9 @@ On macOS you can install a `launchd` agent so the watcher starts automatically
 and keeps writing hook artifacts in the background:
 
 ```bash
+./codex-memory autostart install --load
+./codex-memory autostart status
+./codex-memory autostart remove --unload
 ./codex-memory autostart install --cwd /Users/alex/Desktop/dev --emit-dir /Users/alex/.codex/memory/hook-runtime/dev
 ./codex-memory autostart status --cwd /Users/alex/Desktop/dev
 ./codex-memory autostart remove --cwd /Users/alex/Desktop/dev
@@ -212,6 +228,9 @@ and keeps writing hook artifacts in the background:
 
 Add `--load` to `install` if you want the agent loaded immediately with
 `launchctl`.
+
+If you omit `--cwd`, `autostart` installs a single all-projects watcher. Pass
+`--cwd /path/to/project` when you want a dedicated watcher for one workspace.
 
 `autostart install` now also stages a self-contained runtime under the chosen
 emit directory:
@@ -226,16 +245,17 @@ shutdowns write a final `SessionEnd` payload.
 ## Notes
 
 - Qdrant stores the real embedding vectors under
-  [`.data/qdrant`](./.data/qdrant).
+  `~/.codex/memory/qdrant` by default.
 - Local model weights are cached under
-  [`.data/fastembed-cache`](./.data/fastembed-cache).
+  `~/.codex/memory/fastembed-cache` by default.
 - A hashed fallback vector is still stored in SQLite so search can degrade
   gracefully if embeddings are temporarily unavailable.
 - FTS5 is used when available; if the local SQLite build lacks FTS5, search
   still works with vector and token overlap scoring.
 - Re-running `index` is incremental and only refreshes changed threads unless
   `--force` is supplied.
-- If you want the database somewhere else, pass `--db /path/to/db.sqlite`.
+- If you want the database somewhere else, pass `--db /path/to/db.sqlite` or
+  set `CODEX_MEMORY_DB`.
 - With the default `fastembed` provider, `index`, `search`, and `context`
   download the model once and then run locally.
 

@@ -2,7 +2,7 @@
 
 `codex-memory` 是一个面向 Codex Desktop 的本地 memory sidecar。它会读取
 `~/.codex/state_*.sqlite` 和 `~/.codex/sessions/**/*.jsonl`，然后把可检索的
-记忆索引写到本地。
+记忆索引默认写到全局目录 `~/.codex/memory/` 里。
 
 英文说明见：
 [README.md](./README.md)
@@ -50,6 +50,7 @@
 
 ## 当前这版做到了什么
 
+- 默认全局库：所有项目默认共用 `~/.codex/memory/codex-memory.sqlite`
 - 真 embedding：默认本地 `fastembed`
 - 真向量库：本地 `Qdrant`
 - SQLite + FTS5 + Qdrant 混合检索
@@ -76,8 +77,16 @@
 ./codex-memory search "claude-mem" --cwd /Users/alex/Desktop/dev
 ./codex-memory hook SessionStart --cwd /Users/alex/Desktop/dev
 ./codex-memory watch --cwd /Users/alex/Desktop/dev
+./codex-memory watch
+./codex-memory autostart install --load
 ./codex-memory autostart install --cwd /Users/alex/Desktop/dev --load
 ```
+
+补一句最实用的人话：
+
+- 不带 `--cwd` 的 `watch` / `autostart` = 全项目一起跑
+- 带 `--cwd` = 只盯某一个项目
+- 默认数据库、Qdrant、fastembed 缓存现在都走 `~/.codex/memory/`
 
 ## 致谢
 

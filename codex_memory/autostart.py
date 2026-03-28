@@ -7,6 +7,8 @@ import sys
 
 from codex_memory.codex_data import default_codex_home
 
+GLOBAL_WATCH_LABEL = "com.openai.codex-memory.watch.global"
+
 
 def default_emit_dir(codex_home=None, cwd=None):
     codex_home = default_codex_home(codex_home)
@@ -26,6 +28,8 @@ def default_launch_agents_dir():
 
 
 def launchd_label_for_cwd(cwd):
+    if not cwd:
+        return GLOBAL_WATCH_LABEL
     normalized = os.path.abspath(cwd or os.getcwd())
     suffix = hashlib.sha1(normalized.encode("utf-8")).hexdigest()[:10]
     return "com.openai.codex-memory.watch.{}".format(suffix)
@@ -110,13 +114,13 @@ def build_watch_command(
         "-m",
         "codex_memory",
         "watch",
-        "--cwd",
-        os.path.abspath(cwd),
         "--poll-interval",
         str(poll_interval),
         "--limit",
         str(limit),
     ]
+    if cwd:
+        command.extend(["--cwd", os.path.abspath(cwd)])
     if emit_dir:
         command.extend(["--emit-dir", emit_dir])
     if codex_home:
@@ -173,15 +177,17 @@ def build_launchd_plist(
 
 
 def autostart_paths(cwd, launch_agents_dir=None, codex_home=None, emit_dir=None):
-    label = launchd_label_for_cwd(cwd)
+    normalized_cwd = os.path.abspath(cwd) if cwd else None
+    label = launchd_label_for_cwd(normalized_cwd)
     launch_agents_dir = os.path.expanduser(launch_agents_dir or default_launch_agents_dir())
-    emit_dir = emit_dir or default_emit_dir(codex_home=codex_home, cwd=cwd)
+    emit_dir = emit_dir or default_emit_dir(codex_home=codex_home, cwd=normalized_cwd)
     plist_path = os.path.join(launch_agents_dir, "{}.plist".format(label))
     return {
         "label": label,
         "launch_agents_dir": launch_agents_dir,
         "plist_path": plist_path,
         "emit_dir": emit_dir,
+        "cwd": normalized_cwd,
     }
 
 
@@ -200,7 +206,7 @@ def install_autostart(
     bootstrap_runtime=True,
     bootstrapper=None,
 ):
-    cwd = os.path.abspath(cwd or os.getcwd())
+    cwd = os.path.abspath(cwd) if cwd else None
     paths = autostart_paths(cwd, launch_agents_dir=launch_agents_dir, codex_home=codex_home, emit_dir=emit_dir)
     if label:
         paths["label"] = label
@@ -238,7 +244,7 @@ def install_autostart(
         loaded = True
 
     return {
-        "cwd": cwd,
+        "cwd": paths["cwd"],
         "label": paths["label"],
         "plist_path": paths["plist_path"],
         "emit_dir": paths["emit_dir"],
@@ -250,7 +256,7 @@ def install_autostart(
 
 
 def remove_autostart(cwd, launch_agents_dir=None, unload=False, launchctl_runner=None):
-    cwd = os.path.abspath(cwd or os.getcwd())
+    cwd = os.path.abspath(cwd) if cwd else None
     paths = autostart_paths(cwd, launch_agents_dir=launch_agents_dir)
     unloaded = False
     if unload and os.path.exists(paths["plist_path"]):
@@ -262,7 +268,7 @@ def remove_autostart(cwd, launch_agents_dir=None, unload=False, launchctl_runner
         os.remove(paths["plist_path"])
         removed = True
     return {
-        "cwd": cwd,
+        "cwd": paths["cwd"],
         "label": paths["label"],
         "plist_path": paths["plist_path"],
         "installed": False,
@@ -273,10 +279,10 @@ def remove_autostart(cwd, launch_agents_dir=None, unload=False, launchctl_runner
 
 
 def autostart_status(cwd, launch_agents_dir=None, codex_home=None, emit_dir=None):
-    cwd = os.path.abspath(cwd or os.getcwd())
+    cwd = os.path.abspath(cwd) if cwd else None
     paths = autostart_paths(cwd, launch_agents_dir=launch_agents_dir, codex_home=codex_home, emit_dir=emit_dir)
     return {
-        "cwd": cwd,
+        "cwd": paths["cwd"],
         "label": paths["label"],
         "plist_path": paths["plist_path"],
         "emit_dir": paths["emit_dir"],

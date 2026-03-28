@@ -93,7 +93,7 @@ def build_parser():
     autostart_subparsers = autostart_parser.add_subparsers(dest="autostart_command", required=True)
 
     autostart_install_parser = autostart_subparsers.add_parser("install", help="Install a launchd agent for watch mode")
-    autostart_install_parser.add_argument("--cwd", default=None, help="Workspace path to watch")
+    autostart_install_parser.add_argument("--cwd", default=None, help="Workspace path to watch; omit to watch all projects")
     autostart_install_parser.add_argument("--limit", type=int, default=3, help="How many recent threads to inspect")
     autostart_install_parser.add_argument("--poll-interval", type=float, default=2.0, help="Polling interval in seconds")
     autostart_install_parser.add_argument("--emit-dir", default=None, help="Directory for emitted hook artifacts")
@@ -102,13 +102,13 @@ def build_parser():
     autostart_install_parser.add_argument("--json", action="store_true", help="Emit JSON")
 
     autostart_status_parser = autostart_subparsers.add_parser("status", help="Show launchd auto-start status")
-    autostart_status_parser.add_argument("--cwd", default=None, help="Workspace path to inspect")
+    autostart_status_parser.add_argument("--cwd", default=None, help="Workspace path to inspect; omit for all-projects watcher")
     autostart_status_parser.add_argument("--emit-dir", default=None, help="Override emitted hook artifacts directory")
     autostart_status_parser.add_argument("--launch-agents-dir", default=None, help="Override launch agents directory")
     autostart_status_parser.add_argument("--json", action="store_true", help="Emit JSON")
 
     autostart_remove_parser = autostart_subparsers.add_parser("remove", help="Remove the launchd agent")
-    autostart_remove_parser.add_argument("--cwd", default=None, help="Workspace path to remove")
+    autostart_remove_parser.add_argument("--cwd", default=None, help="Workspace path to remove; omit for all-projects watcher")
     autostart_remove_parser.add_argument("--launch-agents-dir", default=None, help="Override launch agents directory")
     autostart_remove_parser.add_argument("--unload", action="store_true", help="Unload the agent first with launchctl")
     autostart_remove_parser.add_argument("--json", action="store_true", help="Emit JSON")
@@ -231,7 +231,7 @@ def main(argv=None):
         return 0
 
     if args.command == "autostart":
-        cwd = os.path.abspath(args.cwd or os.getcwd())
+        cwd = os.path.abspath(args.cwd) if args.cwd else None
         if args.autostart_command == "install":
             payload = install_autostart(
                 cwd=cwd,
@@ -264,7 +264,7 @@ def main(argv=None):
             print(json.dumps(payload, ensure_ascii=False, indent=2))
         else:
             print("label: {}".format(payload["label"]))
-            print("cwd: {}".format(payload["cwd"]))
+            print("cwd: {}".format(payload["cwd"] or "all-projects"))
             print("plist: {}".format(payload["plist_path"]))
             if "emit_dir" in payload:
                 print("emit dir: {}".format(payload["emit_dir"]))

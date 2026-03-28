@@ -105,8 +105,7 @@ def resolve_embedding_settings(codex_home=None, prefer_model=None, prefer_provid
     ).strip()
     local_cache_dir = (os.environ.get("CODEX_MEMORY_FASTEMBED_CACHE_DIR") or "").strip()
     if not local_cache_dir:
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        local_cache_dir = os.path.join(project_root, ".data", "fastembed-cache")
+        local_cache_dir = os.path.join(codex_home, "memory", "fastembed-cache")
     return EmbeddingSettings(
         api_key=api_key or "",
         base_url=base_url,
