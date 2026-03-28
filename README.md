@@ -5,6 +5,13 @@ thread metadata from `~/.codex/state_*.sqlite` and session transcripts from
 `~/.codex/sessions/**/*.jsonl`, then stores a hybrid recall index in the local
 project data directory at `.data/codex-memory.sqlite` by default.
 
+Chinese documentation: [README.zh-CN.md](./README.zh-CN.md)
+
+It is inspired by
+[thedotmack/claude-mem](https://github.com/thedotmack/claude-mem), but adapted
+for Codex Desktop's current local transcript/state runtime rather than any
+official hook API.
+
 It is designed to be:
 
 - local-first: all indexed data stays on disk
@@ -12,6 +19,30 @@ It is designed to be:
 - project-aware: filter results by `cwd`
 - sandbox-friendly: default writes stay inside this workspace
 - lifecycle-aware: extract task/result/decision/observation style memory, not just raw chat
+
+## Attribution
+
+This project was intentionally inspired by
+[thedotmack/claude-mem](https://github.com/thedotmack/claude-mem), especially
+in these areas:
+
+- persistent memory across coding sessions
+- hook-oriented lifecycle integration
+- context reinjection at session start
+- compact task/result/decision style memory extraction
+
+Important boundaries:
+
+- `codex-memory` is not an official Claude Code plugin
+- `codex-memory` is not an official Codex hook implementation
+- this repository targets Codex Desktop's local transcript/state files instead
+  of Claude Code's native hook system
+- the Claude-style event names are a compatibility surface, not a claim of
+  identical runtime semantics
+
+If you want the original Claude Code-focused project, please use the upstream
+repository directly:
+[https://github.com/thedotmack/claude-mem](https://github.com/thedotmack/claude-mem)
 
 ## What It Stores
 
@@ -32,7 +63,7 @@ results at query time.
 ## Setup
 
 The wrapper prefers the local virtualenv automatically when
-[`/.venv`](/Users/alex/Desktop/dev/codex-memory/.venv) exists.
+[`./.venv`](./.venv) exists.
 
 To install the vector backend dependency:
 
@@ -195,9 +226,9 @@ shutdowns write a final `SessionEnd` payload.
 ## Notes
 
 - Qdrant stores the real embedding vectors under
-  [`.data/qdrant`](/Users/alex/Desktop/dev/codex-memory/.data/qdrant).
+  [`.data/qdrant`](./.data/qdrant).
 - Local model weights are cached under
-  [`.data/fastembed-cache`](/Users/alex/Desktop/dev/codex-memory/.data/fastembed-cache).
+  [`.data/fastembed-cache`](./.data/fastembed-cache).
 - A hashed fallback vector is still stored in SQLite so search can degrade
   gracefully if embeddings are temporarily unavailable.
 - FTS5 is used when available; if the local SQLite build lacks FTS5, search
@@ -207,3 +238,10 @@ shutdowns write a final `SessionEnd` payload.
 - If you want the database somewhere else, pass `--db /path/to/db.sqlite`.
 - With the default `fastembed` provider, `index`, `search`, and `context`
   download the model once and then run locally.
+
+## Acknowledgements
+
+- Upstream inspiration:
+  [thedotmack/claude-mem](https://github.com/thedotmack/claude-mem)
+- This repository focuses on adapting the memory experience to Codex Desktop's
+  current local runtime constraints.
